@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title id='Description'>JavaScript Chart for OpenHAB</title>
+    <meta name="description" content="JavaScript Chart for OpenHAB." />				
+    <link rel="stylesheet" href="jqwidgets/styles/jqx.base.css" type="text/css" />
+    <script type="text/javascript" src="jquery-1.11.1.min.js"></script>
+    <script type="text/javascript" src="jqwidgets/jqxcore.js"></script>
+    <script type="text/javascript" src="jqwidgets/jqxdata.js"></script>
+    <script type="text/javascript" src="jqwidgets/jqxdraw.js"></script>
+    <script type="text/javascript" src="jqwidgets/jqxchart.core.js"></script>
+    <script type="text/javascript">
+		window.onerror = function (errorMsg, url, lineNumber, columnNo, error) {
+			$('#error').html('Error: ' + errorMsg + ' Script: ' + url + ' Line: ' + lineNumber);
+		}
+		
+        $(document).ready(function () {
+			var params = {};
+			if (location.search) {
+				var parts = location.search.substring(1).split('&');
+
+				for (var i = 0; i < parts.length; i++) {
+					var nv = parts[i].split('=');
+					if (!nv[0]) continue;
+					params[nv[0]] = decodeURIComponent(nv[1]) || true;
+				}
+			}
+			
+			var interval = 1800000; // 30 mins
+			var restURL = 'http://x.x.x.x:8181/rest/persistence/items/'+params.item;
+			if ( params.hours )
+			{
+				var hours = parseInt(params.hours);
+				var startDate = new Date();
+				var endDate = new Date();
+				startDate.setHours(startDate.getHours() - hours);
+				restURL += '?starttime=' + $.jqx.dataFormat.formatdate(startDate, "yyyy-MM-ddTHH:mm:ss");
+				restURL += '&endtime=' + $.jqx.dataFormat.formatdate(endDate, "yyyy-MM-ddTHH:mm:ss");
+				if (hours > 48)
+				{
+					interval = 43200000; // 12 hours
+				}
+				else if (hours > 12)
+				{
+					interval = 3600000; // 1 hour
+				}
+				else if (hours < 2)
+				{
+					interval = 600000; // 10 mins
+				}
+			}
+
+            // prepare the data
+            var source =
+            {
+                datatype: "json",
+                datafields: [
+                    { name: 'Date', type: 'date', root: "data", map: 'time' },
+                    { name: 'state', root: "data" }
+                ],
+                url: restURL
+            };
+			
+//			var auth = params.username+':'+params.password;
+//			auth = 'Basic '+btoa(auth);
+			
+            var dataAdapter = new $.jqx.dataAdapter(source, { 
+				async: true, 
+				contentType: "application/json", 
+				autoBind: true,
+//				crossDomain: true,
+//				headers: {
+//					'Authorization': 'Basic '+btoa(params.username+':'+params.password)
+//				},
+//				xhrFields: {
+//					withCredentials: true
+//				},
+//				beforeSend: function (xhr) {
+//					xhr.setRequestHeader('Authorization', auth);
+//				},
+				loadError: function (xhr, status, error) {
+					$('#error').html('Error loading "' + source.url + '" : ' + error);
+//					alert('Error loading "' + source.url + '" : ' + error);
+				}
+			});
+            // prepare jqxChart settings
+            var settings = {
+                title: '',
+				description: '',
+                enableAnimations: true,
+                showLegend: true,
+                padding: { left: 5, top: 5, right: 25, bottom: 5 },
+                titlePadding: { left: 90, top: 0, right: 0, bottom: 10 },
+                source: dataAdapter,
+                xAxis: {
+                    dataField: 'Date',
+                    type: 'date',
+                    baseUnit: 'millisecond',
+                    formatFunction: function (value) {
+                        return $.jqx.dataFormat.formatdate(value, "dd-MM-yy HH:mm");
+                    },
+                    unitInterval: interval,
+                    gridLines: {
+                        visible: true,
+                        interval: interval
+                    },
+                    labels: { angle: -45, offset: { x: -25, y: 0} },
+                },
+                colorScheme: 'scheme01',
+                seriesGroups:
+                    [
+                        {
+                            type: 'spline',
+                            valueAxis:
+                            {
+                                // title: { text: params.title },
+                                // unitInterval: 1
+                            },
+                            series: [
+                                    { dataField: 'state', displayText: params.title }
+                                ]
+                        }
+                    ]
+            };
+            // setup the chart
+            $('#chartContainer').jqxChart(settings);
+        });
+    </script>
+</head>
+<body class='default'  style="overflow:hidden;">
+	<div id='error'></div>
+    <div id='chartContainer' style="width:100%; height:98vh;"></div>
+</body>
+</html>
